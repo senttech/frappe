@@ -33,7 +33,16 @@ def login_via_salesforce(code, state):
 
 @frappe.whitelist(allow_guest=True)
 def login_via_fairlogin(code, state):
-	login_via_oauth2("fairlogin", code, state, decoder=decoder_compat)	
+	login_via_oauth2("fairlogin", code, state, decoder=decoder_compat)
+
+@frappe.whitelist(allow_guest=True)
+def nextcloud(code, state):
+	path = frappe.request.path[1:].split("/")
+	if len(path) == 4 and path[3]:
+		provider = "nextcloud_" + path[3]
+		# Validates if provider doctype exists
+		if frappe.db.exists("Social Login Key", provider):
+			login_via_oauth2(provider, code, state, decoder=decoder_compat)
 
 @frappe.whitelist(allow_guest=True)
 def custom(code, state):

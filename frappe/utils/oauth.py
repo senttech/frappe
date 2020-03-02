@@ -144,7 +144,7 @@ def get_info_via_oauth(provider, code, decoder=None, id_token=False):
 		api_endpoint_args = oauth2_providers[provider].get("api_endpoint_args")
 		info = session.get(api_endpoint, params=api_endpoint_args).json()
 
-	if not (info.get("email_verified") or info.get("email")):
+	if not (info.get("email_verified") or info.get("email") or info.get("ocs.data.email")):
 		frappe.throw(_("Email not verified with {0}").format(provider.title()))
 
 	return info
@@ -275,6 +275,14 @@ def update_oauth_user(user, data, provider):
 		save = True
 		user.set_social_login_userid(provider, userid="/".join(data["sub"].split("/")[-2:]))
 
+	elif provider.startswith("nextcloud_") and not user.get_social_login_userid(provider):
+		save = True
+		user.set_social_login_userid(provider, userid=data["ocs"]["data"]["email"], username=data["ocs"]["data"]["id"])
+		user.update({
+			"location": data["ocs"]["data"]["address"],
+			"phone": data["ocs"]["data"]["phone"]
+		})
+
 	elif not user.get_social_login_userid(provider):
 		save = True
 		user_id_property = frappe.db.get_value("Social Login Key", provider, "user_id_property") or "sub"
@@ -292,13 +300,13 @@ def update_oauth_user(user, data, provider):
 		user.save()
 
 def get_first_name(data):
-	return data.get("first_name") or data.get("given_name") or data.get("name")
+	return data["first_name"] or data["given_name"] or data["name"] or " ".join(data["ocs"]["data"]["display-name"].split(' ')[0:-1])
 
 def get_last_name(data):
-	return data.get("last_name") or data.get("family_name")
+	return data["last_name"] or data["family_name"] or data["ocs"]["data"]["display-name"].split(' ')[-1]
 
 def get_email(data):
-	return data.get("email") or data.get("upn") or data.get("unique_name")
+	return data["email"] or data["upn"] or data["unique_name"] or data["ocs"]["data"]["email"]
 
 def redirect_post_login(desk_user, redirect_to=None):
 	# redirect!
